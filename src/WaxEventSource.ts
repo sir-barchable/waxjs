@@ -23,8 +23,10 @@ export class WaxEventSource {
 
     const postTransaction = async (event: any) => {
       if (event.data.type === "READY") {
+        console.log(`openEventSource: READY`);
         // @ts-ignore
         openedWindow.postMessage(message, this.waxSigningURL);
+        return true;
       }
     };
 
@@ -49,7 +51,7 @@ export class WaxEventSource {
   public async onceEvent(
     source: Window,
     origin: string,
-    action: (e: any) => void
+    action: (e: any) => any
   ) {
     return new Promise((resolve, reject) => {
       (window as Window).addEventListener(
@@ -71,6 +73,10 @@ export class WaxEventSource {
 
           try {
             const result: any = await action(event);
+            if (!result) {
+              console.log(`Action handler returned nothing for event ${JSON.stringify(event.data)}`);
+              return;
+            }
             resolve(result);
           } catch (e) {
             reject(e);

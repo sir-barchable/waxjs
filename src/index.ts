@@ -140,81 +140,22 @@ export class WaxJS {
     // we ensure that it is not going to be rejected due to a delayed
     // pop up that would otherwise occur post transaction creation
     this.api.transact = async (transaction, namedParams) => {
-      if (!(await this.canAutoSign(transaction))) {
-        this.signingWindow = await window.open(
-          url,
-          "WaxPopup",
-          "height=800,width=600"
-        );
-      }
+      this.signingWindow = await window.open(
+        url,
+        "WaxPopup",
+        "height=800,width=600"
+      );
       return await transact(transaction, namedParams);
     };
 
     return this.userAccount;
   }
 
-  private async canAutoSign(transaction: any) {
-    const deserializedTransaction = transaction.actions
-      ? transaction
-      : await this.api.deserializeTransactionWithActions(transaction);
-    return !deserializedTransaction.actions.find((action: any) => {
-      return !this.isWhitelisted(action);
-    });
-  }
-
-  private isWhitelisted(action: any) {
-    return !!this.whitelistedContracts.find((w: any) => {
-      if (w.contract === action.account) {
-        if (action.account === "eosio.token" && action.name === "transfer") {
-          return w.recipients.includes(action.data.to);
-        }
-        return true;
-      }
-      return false;
-    });
-  }
-
-  private async signing(transaction: any) {
-    if (await this.canAutoSign(transaction)) {
-      return this.signViaEndpoint(transaction).catch(() =>
-        // Attempt to recover by signing via the window method
-        this.signViaWindow(undefined, transaction)
-      );
-    }
-
+  private async signing(transaction: any): Promise<any> {
     return this.signViaWindow(this.signingWindow, transaction);
   }
 
-  private async signViaEndpoint(transaction: any) {
-    try {
-      const response: any = await fetch(this.waxAutoSigningURL + "signing", {
-        body: JSON.stringify({
-          transaction: Object.values(transaction)
-        }),
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        method: "POST"
-      });
-      if (!response.ok) {
-        throw new Error(
-          `Signing Endpoint Error ${response.status} ${response.statusText}`
-        );
-      }
-      const data: any = await response.json();
-      if (data.processed && data.processed.except) {
-        throw new Error(data);
-      }
-      return this.receiveSignatures({ data });
-    } catch (e) {
-      // clear the whitelist to make sure we don't repeatedly attempt blocked actions
-      this.whitelistedContracts = [];
-      throw e;
-    }
-  }
-
-  private async signViaWindow(window: Window, transaction: any) {
+  private async signViaWindow(window: Window, transaction: any): Promise<any> {
     const confirmationWindow: Window = await this.waxEventSource.openEventSource(
       this.waxSigningURL + "/cloud-wallet/signing/",
       { type: "TRANSACTION", transaction },
@@ -229,6 +170,7 @@ export class WaxJS {
   }
 
   private async receiveSignatures(event: any) {
+    console.log(`receiveSignatures: event.data.type = ${event.data.type}`);
     if (event.data.type === "TX_SIGNED") {
       const { verified, signatures, whitelistedContracts } = event.data;
       if (!verified || signatures == null) {
@@ -246,6 +188,7 @@ export class WaxJS {
         )}`
       );
     }
-    return [];
+
+    return null;
   }
 }
